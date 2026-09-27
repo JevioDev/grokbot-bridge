@@ -1,245 +1,227 @@
 # grokbot-shim
 
-Run the Grok Bot desktop agent locally with a local computer desktop and a
-configurable model backend.
+Локальный runtime-мост для Grok Bot. Проект подключает установленный Grok Bot
+к локальному Computer desktop, shim-серверу и выбранной модели.
 
-The project connects the installed Grok Bot UI to its own local host runtime,
-translates the app's inference protocol to supported model providers, and runs
-the Computer environment on the same machine. The user can watch or take over
-the desktop through noVNC.
+Поддерживаются Linux и Windows 10/11 с Docker Desktop.
 
-The repository does not include application binaries. Setup extracts the
-required runtime files from the user's installed copy of Grok Bot
+## Возможности
 
-## Status
+- локальный запуск Grok Bot и agent loop;
+- потоковый текст, tool calls и состояние reasoning;
+- Codex OAuth через существующую сессию `codex login`;
+- custom OpenAI-compatible endpoint;
+- выбор модели в настройках приложения;
+- локальный Chrome/XFCE Computer desktop с noVNC;
+- Windows-запуск через PowerShell.
 
-Working on Linux and Windows (Windows 10/11 with Docker Desktop):
+Интеграция использует undocumented API Grok Bot и может потребовать обновлений
+после изменения desktop-приложения.
 
-- local Grok Bot login and agent lifecycle;
-- streamed text, reasoning state, and tool calls;
-- Codex OAuth through an existing `codex login` session;
-- OpenAI-compatible `/chat/completions` providers;
-- model selection in the app's Settings screen;
-- a local Chrome/XFCE Computer desktop with screenshots, input, and noVNC
-  takeover.
+## Требования
 
-This relies on undocumented integration points and may require updates when
-the desktop application changes.
+### Linux
 
-## Requirements
+- установленный Grok Bot;
+- Node.js 22.12 или новее;
+- Docker с запущенным daemon;
+- OpenSSL и curl;
+- `codex login` для Codex-моделей или API-ключ OpenAI-compatible провайдера.
 
-- Linux with the Grok Bot desktop application installed, or Windows 10/11 with
-  Grok Bot for Windows and Docker Desktop;
-- Node.js 22.12 or newer;
-- Docker with a running daemon;
-- OpenSSL and curl;
-- an existing `codex login` session for Codex OAuth models, or an API key for
-  an OpenAI-compatible provider.
+### Windows
 
-The default paths expect the executable at `/opt/Grok Bot/sand`. Override
-`GROKBOT_APP` and `GROKBOT_RESOURCES` when the application is installed
-elsewhere.
+- Windows 10/11;
+- Grok Bot for Windows;
+- Node.js 22.12 или новее;
+- Docker Desktop с Linux containers;
+- OpenSSL и curl (обычно доступны через Git for Windows);
+- Codex CLI с выполненным `codex login` или API-ключ провайдера.
 
-## Quick start
+По умолчанию Windows-скрипты ищут приложение в стандартных папках. Если оно
+установлено иначе, задайте `GROKBOT_APP` и при необходимости
+`GROKBOT_RESOURCES`.
+
+## Быстрый запуск
+
+### Linux
 
 ```bash
-git clone <your-repository-url>
+git clone <адрес-репозитория>
 cd grokbot-shim
 npm ci
 npm run setup
-cp .env.example .env       # optional; add provider keys if needed
+cp .env.example .env
 ./run-all.sh
 ```
 
-On Windows, use PowerShell launchers such as `.\run-all.ps1`,
-`.\computerctl.ps1`, and `.\shimctl.ps1`. Set `GROKBOT_APP` and
-`GROKBOT_RESOURCES` when Grok Bot is installed outside the default locations.
+### Windows PowerShell
 
-`npm run setup` generates a local TLS certificate and extracts the required
-host runtime from your installed copy of Grok Bot. Those generated files stay
-outside Git.
+```powershell
+git clone <адрес-репозитория>
+cd grokbot-shim
+npm ci
+npm run setup
+Copy-Item .env.example .env
+.\run-all.ps1
+```
 
-The first Computer start downloads a pinned container image of several
-gigabytes. Once running, the desktop takeover page is available only on the
-local machine at <http://127.0.0.1:6080/vnc.html>.
+`npm run setup` создаёт локальные TLS-сертификаты и извлекает host runtime из
+установленного Grok Bot. Эти файлы не добавляются в Git.
 
-Check prerequisites at any time:
+Первый запуск Computer скачивает Docker-образ размером несколько гигабайт.
+После запуска takeover desktop доступен по адресу:
+<http://127.0.0.1:6080/vnc.html>.
 
-```bash
+Проверка окружения:
+
+```text
 npm run doctor
 ```
 
-## What runs locally
+## Архитектура
 
 ```text
-Grok Bot UI ──► host gateway (:8550) ──► backend shim (:8443) ──► model
-     │                  │
-     │                  └── agent loop, shell, files, and tools
+Grok Bot UI ──► host gateway (:8550) ──► shim (:8443) ──► модель
+     │                 │
+     │                 └── agent loop, shell, files и tools
      │
-     └── Computer container (:6080 noVNC, :1337 exec/health)
+     └── Computer container (:6080 noVNC, :1337 health)
 ```
 
-- `run-recon.sh` starts the desktop UI with an isolated profile in `appdata/`.
-- `run-host.sh` starts the host runtime extracted from the installed app.
-- `shim/server.mjs` handles local authentication, model metadata, experiments,
-  and Connect-protocol inference streaming.
-- `computerctl.sh` manages the local Computer desktop container.
+- `run-recon.sh` и `run-recon.ps1` запускают desktop с изолированным профилем;
+- `run-host.sh` и `run-host.ps1` запускают извлечённый host runtime;
+- `shim/server.mjs` обслуживает авторизацию, модели и Connect inference;
+- `computerctl.sh` и `computerctl.ps1` управляют Computer-контейнером;
+- `run-*.ps1` предназначены для Windows.
 
-All published services bind to `127.0.0.1` by default. Do not expose them to
-an untrusted network.
+Все сервисы привязаны к `127.0.0.1`. Не открывайте их наружу без отдельной
+защиты.
 
-## Model configuration
+## Настройка моделей
 
-Models shown by the app are declared in `models.json`. The tracked default is
-GPT-5.6 Luna through Codex OAuth with Max reasoning:
+Модели объявляются в `models.json`:
 
 ```json
 {
-  "default": "GPT-5.6-Luna (Codex)",
+  "default": "Local Qwen",
   "models": {
-    "GPT-5.6-Luna (Codex)": {
-      "provider": "codex-oauth",
-      "model": "gpt-5.6-luna",
-      "reasoning_effort": "max"
+    "Local Qwen": {
+      "provider": "openai-compatible",
+      "base_url": "http://127.0.0.1:1234/v1",
+      "model": "qwen2.5-vl",
+      "auth": false,
+      "timeout_ms": 180000
     },
-    "Example API model": {
+    "OpenRouter model": {
       "provider": "openai-compatible",
       "base_url": "https://openrouter.ai/api/v1",
       "model": "provider/model-id",
       "env_key": "OPENROUTER_API_KEY"
-    },
-    "Local model": {
-      "provider": "openai-compatible",
-      "base_url": "http://127.0.0.1:1234/v1",
-      "model": "local-model",
-      "auth": false,
-      "timeout_ms": 120000
     }
   }
 }
 ```
 
-Never put API keys directly in `models.json`. Put them in `.env`, which is
-ignored by Git:
+Для endpoint с авторизацией добавьте ключ в `.env`:
 
 ```dotenv
 OPENROUTER_API_KEY=your-key-here
 ```
 
-Provider support:
+Не храните API-ключи в `models.json`.
 
-- `codex-oauth` uses the ChatGPT subscription session stored by `codex login`;
-- `openai-compatible` uses a streaming `/chat/completions` API;
-- `canned` is an offline response stub for protocol testing.
-
-The optional `fallback` field names another model entry to use if a Codex
-request is rejected because authentication or quota is unavailable.
-
-For OpenAI-compatible servers, `base_url` is the API root; the shim appends
-`/chat/completions`. Use `auth: false` for local servers that do not require a
-Bearer token, `extra_headers` for provider-specific headers, and `timeout_ms`
-to override the 120-second request timeout.
-
-## Commands
-
-```bash
-./run-all.sh                 # start Computer, shim, host, and desktop app
-./computerctl.sh status      # inspect the Computer container
-./computerctl.sh open        # open the noVNC takeover page
-./computerctl.sh logs        # show recent Computer logs
-./shimctl.sh status          # inspect the backend shim
-./shimctl.sh restart         # restart the backend shim
-npm run check                # syntax validation
-npm test                     # unit tests
-```
-
-For debugging, components can be started separately in different terminals:
-
-```bash
-./computerctl.sh start
-./shimctl.sh restart
-./run-host.sh
-./run-recon.sh
-```
-
-## Repository layout
-
-- `shim/` — protocol definitions, inference adapters, model picker, and server;
-- `scripts/setup.sh` — local certificate generation and app-runtime extraction;
-- `scripts/doctor.sh` — prerequisite and generated-file checks;
-- `models.json` — credential-free model catalog;
-- `computerctl.sh` — Computer container lifecycle;
-- `run-*.sh` — stack launchers;
-- `test/` — unit tests.
-
-The following are intentionally not versioned: the extracted `host/` runtime,
-TLS keys and certificates, `appdata/`, `state/`, `logs/`, `node_modules/`, and
-`.env`.
-
-## How inference translation works
-
-The host sends `aiserver.v1.InferenceService/Stream` requests using the Connect
-protocol and binary protobuf messages. The shim decodes messages and the
-agent's tool schema, calls the configured provider, and streams compatible
-response frames back.
-
-Assistant text inside the host loop is private working text. To communicate
-with the user, a model must call the `SendMessage` tool supplied in the request.
-For that reason, provider models need reliable function calling, not only text
-generation.
-
-## Troubleshooting
-
-The Computer panel draws nothing (an empty frame under "<agent>'s screen") when
-the desktop app is started without `--no-sandbox` on its command line. The
-preview is an Electron `<webview>` on the box's noVNC page and the app marks that
-guest sandboxed, while its own in-process `no-sandbox` switch is applied too late
-to reach the guest. The half-sandboxed guest renderer cannot allocate shared
-memory, aborts on `/dev/shm`, and crash-loops, so the panel stays blank even
-though the box, VNC server, and noVNC endpoint are all healthy. `run-recon.sh`
-passes the flag for this reason. The fingerprint in `logs/app.out` is:
+Для OpenAI-compatible моделей shim отправляет запросы на:
 
 ```text
-ERROR:base/memory/platform_shared_memory_region_posix.cc:213] Creating shared memory in /dev/shm/... failed: No such process (3)
-FATAL:base/memory/platform_shared_memory_region_posix.cc:218] This is frequently caused by incorrect permissions on /dev/shm.
+{base_url}/chat/completions
 ```
 
-The desktop takeover page at <http://127.0.0.1:6080/vnc.html> is served straight
-from the container, so it keeps working regardless of this flag and is the quick
-way to tell a preview problem from a Computer problem.
+Поддерживаются streaming SSE, function/tool calling и изображения. Доступны
+дополнительные параметры:
 
-## Privacy and security
+- `auth: false` — не добавлять Bearer-заголовок;
+- `extra_headers` — дополнительные HTTP-заголовки;
+- `timeout_ms` — timeout запроса в миллисекундах.
 
-- The isolated Grok Bot profile does not modify the default application
-  profile.
-- Agent prompts and model responses may be sent to the provider selected in
-  `models.json`.
-- Runtime logs can contain prompts, tool arguments, filesystem paths, and
-  other sensitive data. Review and sanitize them before sharing.
-- The noVNC page provides control of the Computer desktop. Keep it bound to
-  loopback.
+## Как работают tools
 
-See `SECURITY.md` for vulnerability reporting guidance.
+1. Grok Bot отправляет Connect/protobuf-запрос в shim.
+2. Shim преобразует описание tools в формат OpenAI Chat Completions.
+3. Модель возвращает streaming `tool_calls`.
+4. Grok Bot выполняет tool: shell, файлы, Computer или `SendMessage`.
+5. Результат tool отправляется модели следующим сообщением.
+6. Скриншоты Computer передаются как `image_url`.
 
-## Contributing
+Обычный текст модели является внутренним ответом agent loop. Чтобы показать
+сообщение пользователю, модель должна вызвать `SendMessage`.
 
-Contributions are welcome. Read `CONTRIBUTING.md`, run `npm run check` and
-`npm test`, and confirm that no credentials or extracted application files are
-included in the change.
+## Команды
 
-## License
+### Linux
 
-The original code in this repository is available under the ISC License. Grok
-Bot, the extracted host runtime, the Computer image, and third-party model
-services remain subject to their respective owners' terms and licenses.
+```bash
+./run-all.sh
+./computerctl.sh status
+./computerctl.sh open
+./computerctl.sh logs
+./shimctl.sh status
+./shimctl.sh restart
+npm run check
+npm test
+```
 
----
+### Windows PowerShell
 
-Cooked by aashuu ✦ (Ashutosh Kumar)<br>
-Founder of [2C Labs](https://www.2clabs.tech)
+```powershell
+.\run-all.ps1
+.\computerctl.ps1 status
+.\computerctl.ps1 open
+.\computerctl.ps1 logs
+.\shimctl.ps1 status
+.\shimctl.ps1 restart
+npm run check
+npm test
+```
 
-I build tech businesses through SaaS products across every layer of the internet ( Web2 ▪︎ Web3 ▪︎ AI-native ▪︎ Infrastructure )
+Для отладки компоненты можно запускать отдельно:
 
-Connect here:<br>
-Website [www.aashuu.me](https://www.aashuu.me) ✦  𝕏 [@warrioraashuu](https://x.com/warrioraashuu) ✦  LinkedIn [@warrioraashuu](https://www.linkedin.com/in/warrioraashuu/)
+```powershell
+.\computerctl.ps1 start
+.\shimctl.ps1 restart
+.\run-host.ps1
+.\run-recon.ps1
+```
 
+## Проверка
+
+```text
+npm run check
+npm test
+```
+
+## Структура репозитория
+
+- `shim/` — protobuf, inference adapters, model picker и сервер;
+- `scripts/` — setup, doctor и platform helpers;
+- `models.json` — каталог моделей без credentials;
+- `run-*.sh` — Linux launchers;
+- `run-*.ps1` — Windows launchers;
+- `computerctl.*` — управление Computer-контейнером;
+- `test/` — unit-тесты.
+
+Следующие файлы намеренно не версионируются: `host/`, `certs/`, `appdata/`,
+`state/`, `logs/`, `node_modules/` и `.env`.
+
+## Безопасность
+
+- изолированный профиль Grok Bot не изменяет основной профиль приложения;
+- prompt и ответы модели могут отправляться выбранному провайдеру;
+- логи могут содержать prompt, аргументы tools и пути к файлам;
+- noVNC даёт управление Computer desktop, поэтому оставляйте его на loopback.
+
+Сообщения об уязвимостях описаны в `SECURITY.md`.
+
+## Лицензия
+
+Исходный код распространяется по лицензии ISC. Grok Bot, Docker image и
+сторонние model services регулируются условиями их владельцев.
