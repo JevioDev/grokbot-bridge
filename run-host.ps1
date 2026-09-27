@@ -1,5 +1,6 @@
 . "$PSScriptRoot\scripts\windows-common.ps1"
 $app = Resolve-GrokBotApp
+if ((Get-BridgeRuntimeMode) -eq 'modern') { throw 'The installed Grok Bot uses its modern built-in coordinator; run-all.ps1 does not start a legacy host process.' }
 $env:SAND_BACKEND_URL = if ($env:SAND_BACKEND_URL) { $env:SAND_BACKEND_URL } else { 'https://localhost:8443' }
 $env:NODE_EXTRA_CA_CERTS = Join-Path $script:Root 'certs/rootCA.pem'
 $env:SAND_HOST_PORT = if ($env:SAND_HOST_PORT) { $env:SAND_HOST_PORT } else { '8550' }

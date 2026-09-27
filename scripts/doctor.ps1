@@ -6,7 +6,13 @@ Check-Command node; Check-Command npm
 try { Write-Host "ok  openssl ($(& (Resolve-OpenSsl) version 2>$null | Select-Object -First 1))" } catch { Write-Host 'missing  openssl'; $failed = $true }
 Check-Command docker
 try { $app = Resolve-GrokBotApp; Check-File $app } catch { Write-Host "missing  Grok Bot.exe"; $failed = $true }
-Check-File (Join-Path $script:Root 'certs/rootCA.pem'); Check-File (Join-Path $script:Root 'certs/localhost.pem'); Check-File (Join-Path $script:Root 'certs/localhost.key'); Check-File (Join-Path $script:Root 'host/dist/host/host-main.cjs')
+Check-File (Join-Path $script:Root 'certs/rootCA.pem'); Check-File (Join-Path $script:Root 'certs/localhost.pem'); Check-File (Join-Path $script:Root 'certs/localhost.key')
+$runtimeMode = Get-BridgeRuntimeMode
+if ($runtimeMode -eq 'modern') {
+  Write-Host 'ok  Grok Bot runtime: modern coordinator'
+} else {
+  Check-File (Join-Path $script:Root 'host/dist/host/host-main.cjs')
+}
 if (Get-Command docker -ErrorAction SilentlyContinue) { & cmd.exe /d /c 'docker info >nul 2>nul'; if ($LASTEXITCODE) { Write-Host 'unavailable  Docker daemon'; $failed = $true } else { Write-Host 'ok  Docker daemon' } }
 if ($failed) { throw 'Doctor found missing prerequisites; run: npm run setup' }
 Write-Host 'ready'

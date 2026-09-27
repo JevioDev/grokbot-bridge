@@ -15,11 +15,15 @@ if (-not (Test-Path -LiteralPath (Join-Path $nodeModules '.bin/asar.cmd'))) {
 }
 $asarCmd = Join-Path $nodeModules '.bin/asar.cmd'
 $archiveEntries = @(& $asarCmd list $asar)
-if (-not ($archiveEntries | Where-Object { $_ -match '\\dist\\host\\host-main\.cjs$' })) {
-  throw "This Grok Bot build is not compatible: $asar does not contain dist/host/host-main.cjs. Install a compatible build or set GROKBOT_RESOURCES to one that contains the host runtime."
+$hasLegacyRuntime = [bool]($archiveEntries | Where-Object { $_ -match '\\dist\\host\\host-main\.cjs$' })
+$hasModernRuntime = [bool]($archiveEntries | Where-Object { $_ -match '\\dist\\node-agent-coordinator\\main\.cjs$' })
+if (-not $hasLegacyRuntime -and -not $hasModernRuntime) {
+  throw "This Grok Bot build is not compatible: $asar contains neither the legacy host runtime nor the modern node-agent-coordinator."
 }
+$runtimeMode = if ($hasLegacyRuntime) { 'legacy' } else { 'modern' }
 
 foreach ($dir in @('certs', 'host/dist/host', 'host/dist/deps', 'appdata', 'logs', 'state/host-workdir')) { New-Item -ItemType Directory -Force -Path (Join-Path $script:Root $dir) | Out-Null }
+Set-Content -Path (Join-Path $script:Root 'state/runtime-mode.json') -Value (@{ mode = $runtimeMode } | ConvertTo-Json)
 $openssl = Resolve-OpenSsl
 $opensslRoot = Split-Path (Split-Path $openssl -Parent) -Parent
 $opensslConfig = @(
@@ -58,12 +62,14 @@ if (-not (Test-Path $localhostPem) -or -not (Test-Path $localhostKey)) {
 }
 
 $hostDir = Join-Path $script:Root 'host/dist/host'; $depsDir = Join-Path $script:Root 'host/dist/deps'
-Push-Location $hostDir
-try {
-  & $asarCmd extract-file $asar 'dist/host/host-main.cjs'
-  & $asarCmd extract-file $asar 'dist/host/host-main.cjs.map'
-  if ($LASTEXITCODE) { throw 'Host runtime extraction failed.' }
-} finally { Pop-Location }
+if ($runtimeMode -eq 'legacy') {
+  Push-Location $hostDir
+  try {
+    & $asarCmd extract-file $asar 'dist\host\host-main.cjs'
+    & $asarCmd extract-file $asar 'dist\host\host-main.cjs.map'
+    if ($LASTEXITCODE) { throw 'Host runtime extraction failed.' }
+  } finally { Pop-Location }
+}
 Copy-Item -Recurse -Force (Join-Path $unpacked 'dist/deps/*') $depsDir
-if (-not (Test-Path (Join-Path $hostDir 'host-main.cjs'))) { throw 'Host runtime extraction failed.' }
-Write-Host "Setup complete. Next: .\run-all.ps1"
+if ($runtimeMode -eq 'legacy' -and -not (Test-Path (Join-Path $hostDir 'host-main.cjs'))) { throw 'Host runtime extraction failed.' }
+Write-Host "Setup complete (runtime: $runtimeMode). Next: .\run-all.ps1"

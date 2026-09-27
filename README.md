@@ -65,20 +65,22 @@ Copy-Item .env.example .env
 .\run-all.ps1
 ```
 
-`npm run setup` создаёт локальные TLS-сертификаты и извлекает host runtime из
+`npm run setup` создаёт локальные TLS-сертификаты и определяет runtime
 установленного Grok Bot. Эти файлы не добавляются в Git.
 
 ### Совместимость версии Grok Bot
 
-Текущий bridge ожидает host runtime по пути
-`dist/host/host-main.cjs` внутри `resources/app.asar`. В новых сборках Grok Bot
-(например, в Windows-сборке `0.47.0`) этот runtime был заменён новой внутренней
-архитектурой, поэтому такая сборка пока несовместима с bridge.
+Bridge поддерживает два режима:
 
-Если `npm run setup` сообщает, что `dist/host/host-main.cjs` отсутствует,
-установите совместимую более старую сборку Grok Bot или укажите
-`GROKBOT_RESOURCES` на каталог ресурсов такой сборки. Это не связано с Node.js,
-OpenSSL или Docker.
+- `legacy` — извлекает `dist/host/host-main.cjs` из `resources/app.asar`;
+- `modern` — использует встроенный `node-agent-coordinator` новой сборки и
+  подключает его к Computer gateway на `127.0.0.1:1340`.
+
+Windows-сборка Grok Bot `0.47.0` использует `modern` режим. Для него Docker
+контейнер должен публиковать порт `1340`.
+
+Если setup сообщает, что отсутствуют оба runtime, установите совместимую
+сборку Grok Bot или задайте `GROKBOT_RESOURCES` на другой каталог ресурсов.
 
 Первый запуск Computer скачивает Docker-образ размером несколько гигабайт.
 После запуска takeover desktop доступен по адресу:

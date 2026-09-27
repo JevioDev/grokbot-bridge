@@ -1,6 +1,17 @@
 $ErrorActionPreference = 'Stop'
 $script:Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
+function Get-BridgeRuntimeMode {
+  $modeFile = Join-Path $script:Root 'state/runtime-mode.json'
+  if (Test-Path -LiteralPath $modeFile) {
+    try {
+      $mode = (Get-Content -LiteralPath $modeFile -Raw | ConvertFrom-Json).mode
+      if ($mode -in @('legacy', 'modern')) { return $mode }
+    } catch { }
+  }
+  return 'legacy'
+}
+
 function Import-DotEnv {
   $envFile = Join-Path $script:Root '.env'
   if (-not (Test-Path -LiteralPath $envFile)) { return }

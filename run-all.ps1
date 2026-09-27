@@ -2,6 +2,7 @@
 
 $computerCtl = Join-Path $script:Root 'computerctl.ps1'
 $shimCtl = Join-Path $script:Root 'shimctl.ps1'
+$runtimeMode = Get-BridgeRuntimeMode
 $computerWasRunning = $false
 & $computerCtl status *> $null
 if ($LASTEXITCODE -eq 0) { $computerWasRunning = $true }
@@ -12,6 +13,17 @@ $hostProc = $null
 try {
   & $computerCtl start
   if (-not $shimWasRunning) { & $shimCtl start }
+
+  if ($runtimeMode -eq 'modern') {
+    $gatewayReady = $false
+    for ($i = 0; $i -lt 40; $i++) {
+      if (Test-TcpPort '127.0.0.1' 1340) { $gatewayReady = $true; break }
+      Start-Sleep -Milliseconds 250
+    }
+    if (-not $gatewayReady) { throw 'Computer host gateway did not start on 127.0.0.1:1340.' }
+    & (Join-Path $script:Root 'run-recon.ps1') @args
+    return
+  }
 
   $hostOut = Join-Path $script:Root 'logs/host.out'
   $hostErr = Join-Path $script:Root 'logs/host.err'
