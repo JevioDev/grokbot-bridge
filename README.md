@@ -68,6 +68,18 @@ Copy-Item .env.example .env
 `npm run setup` создаёт локальные TLS-сертификаты и извлекает host runtime из
 установленного Grok Bot. Эти файлы не добавляются в Git.
 
+### Совместимость версии Grok Bot
+
+Текущий bridge ожидает host runtime по пути
+`dist/host/host-main.cjs` внутри `resources/app.asar`. В новых сборках Grok Bot
+(например, в Windows-сборке `0.47.0`) этот runtime был заменён новой внутренней
+архитектурой, поэтому такая сборка пока несовместима с bridge.
+
+Если `npm run setup` сообщает, что `dist/host/host-main.cjs` отсутствует,
+установите совместимую более старую сборку Grok Bot или укажите
+`GROKBOT_RESOURCES` на каталог ресурсов такой сборки. Это не связано с Node.js,
+OpenSSL или Docker.
+
 Первый запуск Computer скачивает Docker-образ размером несколько гигабайт.
 После запуска takeover desktop доступен по адресу:
 <http://127.0.0.1:6080/vnc.html>.
