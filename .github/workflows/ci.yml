@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - name: Validate PowerShell syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($file in Get-ChildItem -Path . -Filter *.ps1 -Recurse) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count) {
+              $failed = $true
+              Write-Host $file.FullName
+              $errors | ForEach-Object { Write-Host $_.Message }
+            }
+          }
+          if ($failed) { exit 1 }

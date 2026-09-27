@@ -46,7 +46,7 @@
 ### Linux
 
 ```bash
-git clone <адрес-репозитория>
+git clone https://github.com/JevioDev/grokbot-bridge.git
 cd grokbot-bridge
 npm ci
 npm run setup
@@ -57,7 +57,7 @@ cp .env.example .env
 ### Windows PowerShell
 
 ```powershell
-git clone <адрес-репозитория>
+git clone https://github.com/JevioDev/grokbot-bridge.git
 cd grokbot-bridge
 npm ci
 npm run setup
@@ -192,6 +192,11 @@ npm test
 .\run-recon.ps1
 ```
 
+`run-all.ps1` ждёт доступности host gateway на TCP-порту `8550` перед запуском
+Grok Bot. При завершении он останавливает только host, shim и Computer,
+которые были подняты этим запуском; уже работавшие компоненты остаются
+запущенными.
+
 ## Проверка
 
 ```text
@@ -225,3 +230,9 @@ npm test
 
 Исходный код распространяется по лицензии ISC. Grok Bot, Docker image и
 сторонние model services регулируются условиями их владельцев.
+
+## Credits
+
+Проект основан на [codeaashu/grokbot-shim](https://github.com/codeaashu/grokbot-shim).
+Поддержка Windows и дополнительные OpenAI-compatible интеграции поддерживаются
+JevioDev.

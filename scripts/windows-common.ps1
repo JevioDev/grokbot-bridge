@@ -34,13 +34,38 @@ function Resolve-GrokBotResources([string]$appPath) {
   throw "Grok Bot resources were not found at $resources. Set GROKBOT_RESOURCES."
 }
 
-function Test-HttpsHealth([string]$url = 'https://localhost:8443/health') {
+function Resolve-OpenSsl {
+  $command = Get-Command openssl.exe -ErrorAction SilentlyContinue
+  if ($command) { return $command.Source }
+  $candidates = @(
+    (Join-Path ${env:ProgramFiles} 'Git\usr\bin\openssl.exe'),
+    (Join-Path ${env:ProgramFiles} 'OpenSSL-Win64\bin\openssl.exe'),
+    (Join-Path ${env:ProgramFiles(x86)} 'OpenSSL-Win32\bin\openssl.exe')
+  )
+  foreach ($candidate in $candidates) { if ($candidate -and (Test-Path -LiteralPath $candidate)) { return $candidate } }
+  throw 'OpenSSL was not found. Add it to PATH, install Git for Windows, or install OpenSSL-Win64.'
+}
+
+function Test-HttpHealth([string]$url) {
   try {
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-    if ($curl) { & $curl.Source '-ks' '--max-time' '2' $url *> $null; return $LASTEXITCODE -eq 0 }
-    Invoke-WebRequest -Uri $url -TimeoutSec 2 | Out-Null
+    if ($curl) { & $curl.Source '-fsSk' '--max-time' '2' $url *> $null; return $LASTEXITCODE -eq 0 }
+    Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2 | Out-Null
     return $true
   } catch { return $false }
+}
+
+function Test-HttpsHealth([string]$url = 'https://localhost:8443/health') {
+  return Test-HttpHealth $url
+}
+
+function Test-TcpPort([string]$address, [int]$port, [int]$timeoutMs = 500) {
+  $client = New-Object System.Net.Sockets.TcpClient
+  try {
+    $task = $client.ConnectAsync($address, $port)
+    if (-not $task.Wait($timeoutMs)) { return $false }
+    return $client.Connected
+  } catch { return $false } finally { $client.Dispose() }
 }
 
 Import-DotEnv
