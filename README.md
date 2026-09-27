@@ -1,4 +1,4 @@
-# grokbot-shim
+# grokbot-bridge
 
 Локальный runtime-мост для Grok Bot. Проект подключает установленный Grok Bot
 к локальному Computer desktop, shim-серверу и выбранной модели.
@@ -47,7 +47,7 @@
 
 ```bash
 git clone <адрес-репозитория>
-cd grokbot-shim
+cd grokbot-bridge
 npm ci
 npm run setup
 cp .env.example .env
@@ -58,7 +58,7 @@ cp .env.example .env
 
 ```powershell
 git clone <адрес-репозитория>
-cd grokbot-shim
+cd grokbot-bridge
 npm ci
 npm run setup
 Copy-Item .env.example .env

@@ -287,7 +287,7 @@ const server = https.createServer(
 );
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`grokbot-shim recon server: https://localhost:${PORT} (mode=${MODE})`);
+  console.log(`grokbot-bridge recon server: https://localhost:${PORT} (mode=${MODE})`);
   console.log(`capture log: ${path.join(LOG_DIR, `capture-${stamp}.jsonl`)}`);
   if (MODE === "forward") console.log(`upstream: ${UPSTREAM}`);
 });

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve grokbot-shim.
+Thanks for helping improve grokbot-bridge.
 
 ## Development setup
 

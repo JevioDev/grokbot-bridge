@@ -1,5 +1,5 @@
 {
-  "name": "grokbot-shim",
+  "name": "grokbot-bridge",
   "version": "1.0.0",
   "description": "Run the Grok Bot desktop agent locally with configurable model providers.",
   "type": "module",

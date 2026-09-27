@@ -88,7 +88,7 @@ export function resolveEntry(id) {
 
 async function* cannedSession(req) {
   const user = lastUserText(req);
-  const reply = `Hello from grokbot-shim! You said: "${user.slice(0, 200)}". Model routing is working — swap me out in models.json.`;
+  const reply = `Hello from grokbot-bridge! You said: "${user.slice(0, 200)}". Model routing is working — swap me out in models.json.`;
   const words = reply.split(" ");
   for (let i = 0; i < words.length; i++) {
     yield frames.text((i === 0 ? "" : " ") + words[i]);

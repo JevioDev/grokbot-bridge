@@ -19,7 +19,7 @@ $openssl = Get-Command openssl -ErrorAction SilentlyContinue
 if (-not $openssl) { throw 'OpenSSL is required. Install it (for example through Git for Windows) and rerun setup.' }
 $rootCa = Join-Path $script:Root 'certs/rootCA.pem'; $rootKey = Join-Path $script:Root 'certs/rootCA.key'
 if (-not (Test-Path $rootCa) -or -not (Test-Path $rootKey)) {
-  & $openssl.Source req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 -subj '/CN=grokbot-shim local CA' -keyout $rootKey -out $rootCa 2>$null
+  & $openssl.Source req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 -subj '/CN=grokbot-bridge local CA' -keyout $rootKey -out $rootCa 2>$null
   if ($LASTEXITCODE) { throw 'Could not generate the local CA certificate.' }
 }
 $localhostPem = Join-Path $script:Root 'certs/localhost.pem'; $localhostKey = Join-Path $script:Root 'certs/localhost.key'; $csr = Join-Path $script:Root 'certs/localhost.csr'

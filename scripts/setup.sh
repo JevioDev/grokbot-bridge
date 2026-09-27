@@ -35,7 +35,7 @@ mkdir -p "$ROOT/appdata" "$ROOT/logs" "$ROOT/state/host-workdir"
 if [[ ! -f "$ROOT/certs/rootCA.pem" || ! -f "$ROOT/certs/rootCA.key" ]]; then
   echo "generating local certificate authority..."
   openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 3650 \
-    -subj "/CN=grokbot-shim local CA" \
+    -subj "/CN=grokbot-bridge local CA" \
     -keyout "$ROOT/certs/rootCA.key" \
     -out "$ROOT/certs/rootCA.pem" >/dev/null 2>&1
 fi

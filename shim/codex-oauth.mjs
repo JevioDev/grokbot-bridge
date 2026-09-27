@@ -378,7 +378,7 @@ async function postResponses(req, entry, accessToken) {
         authorization: `Bearer ${accessToken}`,
         accept: "text/event-stream",
         "content-type": "application/json",
-        "user-agent": "codex_cli_rs/0.0.0 (grokbot-shim)",
+        "user-agent": "codex_cli_rs/0.0.0 (grokbot-bridge)",
         originator: "codex_cli_rs",
         session_id: sessionIdFor(req),
         "x-client-request-id": crypto.randomUUID(),
