@@ -13,7 +13,7 @@ required runtime files from the user's installed copy of Grok Bot
 
 ## Status
 
-Working on Linux:
+Working on Linux and Windows (Windows 10/11 with Docker Desktop):
 
 - local Grok Bot login and agent lifecycle;
 - streamed text, reasoning state, and tool calls;
@@ -28,7 +28,8 @@ the desktop application changes.
 
 ## Requirements
 
-- Linux with the Grok Bot desktop application installed;
+- Linux with the Grok Bot desktop application installed, or Windows 10/11 with
+  Grok Bot for Windows and Docker Desktop;
 - Node.js 22.12 or newer;
 - Docker with a running daemon;
 - OpenSSL and curl;
@@ -49,6 +50,10 @@ npm run setup
 cp .env.example .env       # optional; add provider keys if needed
 ./run-all.sh
 ```
+
+On Windows, use PowerShell launchers such as `.\run-all.ps1`,
+`.\computerctl.ps1`, and `.\shimctl.ps1`. Set `GROKBOT_APP` and
+`GROKBOT_RESOURCES` when Grok Bot is installed outside the default locations.
 
 `npm run setup` generates a local TLS certificate and extracts the required
 host runtime from your installed copy of Grok Bot. Those generated files stay
@@ -102,6 +107,13 @@ GPT-5.6 Luna through Codex OAuth with Max reasoning:
       "base_url": "https://openrouter.ai/api/v1",
       "model": "provider/model-id",
       "env_key": "OPENROUTER_API_KEY"
+    },
+    "Local model": {
+      "provider": "openai-compatible",
+      "base_url": "http://127.0.0.1:1234/v1",
+      "model": "local-model",
+      "auth": false,
+      "timeout_ms": 120000
     }
   }
 }
@@ -122,6 +134,11 @@ Provider support:
 
 The optional `fallback` field names another model entry to use if a Codex
 request is rejected because authentication or quota is unavailable.
+
+For OpenAI-compatible servers, `base_url` is the API root; the shim appends
+`/chat/completions`. Use `auth: false` for local servers that do not require a
+Bearer token, `extra_headers` for provider-specific headers, and `timeout_ms`
+to override the 120-second request timeout.
 
 ## Commands
 

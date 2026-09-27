@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import protobuf from "protobufjs";
 
-import { structToJson } from "./struct.mjs";
+import { structToJson, valueToJson } from "./struct.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -106,23 +106,66 @@ function sseLines(chunkText, leftover) {
   return { lines: lines.slice(0, -1), leftover: lines.at(-1) };
 }
 
+function imageUrl(part) {
+  if (part?.part !== "image" || !part.image?.data) return undefined;
+  const data = part.image.data;
+  return /^(https?|data):/.test(data)
+    ? data
+    : `data:${part.image.mimeType || "image/png"};base64,${data}`;
+}
+
+function openaiMessageContent(message) {
+  if (message.content === "text") return message.text ?? "";
+  const content = [];
+  for (const part of message.parts?.parts ?? []) {
+    if (part.part === "text" && part.text?.text) content.push({ type: "text", text: part.text.text });
+    const url = imageUrl(part);
+    if (url) content.push({ type: "image_url", image_url: { url, detail: "high" } });
+  }
+  if (!content.length) return "";
+  return content.length === 1 && content[0].type === "text" ? content[0].text : content;
+}
+
+function openaiToolContent(part) {
+  const value = valueToJson(part.result);
+  const text = typeof value === "string" ? value : JSON.stringify(value ?? null);
+  const content = text ? [{ type: "text", text: part.isError ? `ERROR: ${text}` : text }] : [];
+  for (const item of part.experimentalContent ?? []) {
+    const url = imageUrl(item);
+    if (url) content.push({ type: "image_url", image_url: { url, detail: "high" } });
+  }
+  if (!content.length) return "";
+  return content.length === 1 && content[0].type === "text" ? content[0].text : content;
+}
+
 async function* openaiSession(req, entry) {
   const apiKey = entry.api_key ?? (entry.env_key ? process.env[entry.env_key] : undefined);
-  if (!apiKey) {
+  if (!apiKey && entry.auth !== false) {
     yield frames.error(`shim: no API key for model entry (set ${entry.env_key ?? "api_key"})`, 5);
     return;
   }
   const messages = [];
   for (const m of req.messages) {
     const role = m.role === 1 ? "user" : m.role === 2 ? "assistant" : m.role === 3 ? "tool" : "system";
-    let content = "";
-    if (m.content === "text") content = m.text ?? "";
-    else if (m.content === "parts") {
-      content = (m.parts.parts ?? [])
-        .map((p) => (p.part === "text" ? p.text?.text ?? "" : ""))
-        .join("");
+    if (role === "tool") {
+      for (const part of m.toolContent?.parts ?? []) {
+        const content = openaiToolContent(part);
+        if (content) messages.push({ role, tool_call_id: part.toolCallId, content });
+      }
+      continue;
     }
-    if (content) messages.push({ role, content });
+    const content = openaiMessageContent(m);
+    const toolCalls = role === "assistant"
+      ? (m.toolCalls ?? []).filter((call) => call.toolCallId && call.toolName).map((call) => ({
+          id: call.toolCallId,
+          type: "function",
+          function: {
+            name: call.toolName,
+            arguments: call.rawToolCallArgs || JSON.stringify(structToJson(call.args) ?? {}),
+          },
+        }))
+      : [];
+    if (content || toolCalls.length) messages.push({ role, content: content || null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
   }
   const tools = (req.tools ?? []).map((t) => ({
     type: "function",
@@ -141,15 +184,22 @@ async function* openaiSession(req, entry) {
     ...(req.modelConfig?.temperature ? { temperature: req.modelConfig.temperature } : {}),
   };
   const baseUrl = (entry.base_url ?? "https://openrouter.ai/api/v1").replace(/\/+$/, "");
-  const resp = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`,
-      ...(entry.extra_headers ?? {}),
-    },
-    body: JSON.stringify(body),
-  });
+  let resp;
+  try {
+    resp = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+        ...(entry.extra_headers ?? {}),
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(Number(entry.timeout_ms ?? process.env.OPENAI_COMPATIBLE_TIMEOUT_MS ?? 120_000)),
+    });
+  } catch (err) {
+    yield frames.error(`shim: upstream request failed: ${err?.message ?? err}`, 7);
+    return;
+  }
   if (!resp.ok || !resp.body) {
     const errText = (await resp.text().catch(() => "")).slice(0, 400);
     yield frames.error(`shim: upstream ${resp.status}: ${errText}`, 1);

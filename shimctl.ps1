@@ -1,0 +1,6 @@
+. "$PSScriptRoot\scripts\windows-common.ps1"
+$pidFile = Join-Path $script:Root 'state/shim.pid'
+New-Item -ItemType Directory -Force -Path (Join-Path $script:Root 'logs'), (Join-Path $script:Root 'state') | Out-Null
+function Stop-Shim { if (Test-Path $pidFile) { $id = [int](Get-Content $pidFile -ErrorAction SilentlyContinue); if ($id) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }; Remove-Item $pidFile -Force -ErrorAction SilentlyContinue } }
+function Start-Shim { $log = Join-Path $script:Root 'logs/shim.out'; $err = Join-Path $script:Root 'logs/shim.err'; $proc = Start-Process -FilePath node -ArgumentList (Join-Path $script:Root 'shim/server.mjs') -WorkingDirectory $script:Root -RedirectStandardOutput $log -RedirectStandardError $err -PassThru; Set-Content -Path $pidFile -Value $proc.Id; for ($i = 0; $i -lt 20; $i++) { if (Test-HttpsHealth) { Write-Host 'shim up on https://localhost:8443'; return }; Start-Sleep -Milliseconds 250 }; throw "Shim failed to start; inspect $log" }
+switch ($args[0]) { 'stop' { Stop-Shim; Write-Host 'shim stopped' } 'start' { Start-Shim } 'restart' { Stop-Shim; Start-Shim } 'status' { if (Test-HttpsHealth) { Write-Host 'up' } else { Write-Host 'down'; exit 1 } } default { Stop-Shim; Start-Shim } }
