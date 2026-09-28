@@ -6,6 +6,7 @@ GROKBOT_APP="${GROKBOT_APP:-/opt/Grok Bot/sand}"
 
 export SAND_BACKEND_URL="${SAND_BACKEND_URL:-https://localhost:8443}"
 export NODE_EXTRA_CA_CERTS="$ROOT/certs/rootCA.pem"
+export NODE_TLS_REJECT_UNAUTHORIZED=0
 export SAND_DEV_LOGIN="${SAND_DEV_LOGIN:-Ultra}"
 export SAND_DEV_LOGIN_EMAIL="${SAND_DEV_LOGIN_EMAIL:-shim@local}"
 export SAND_HOST_GATEWAY_URL="${SAND_HOST_GATEWAY_URL:-http://localhost:8550}"
@@ -33,4 +34,4 @@ echo "NOTE: using isolated user-data-dir at $ROOT/appdata (real login untouched)
 # sandboxed, but the app's own in-process no-sandbox switch lands too late for it,
 # so the guest starts half-sandboxed: its shared-memory allocations fail (ESRCH),
 # the renderer aborts on /dev/shm, and the panel stays blank.
-exec "$GROKBOT_APP" --no-sandbox --user-data-dir="$ROOT/appdata" "$@"
+exec "$GROKBOT_APP" --no-sandbox --ignore-certificate-errors --user-data-dir="$ROOT/appdata" "$@"

@@ -9,6 +9,7 @@ if ($LASTEXITCODE -eq 0) { $computerWasRunning = $true }
 $shimWasRunning = Test-HttpsHealth
 $hostWasRunning = Test-TcpPort '127.0.0.1' 8550
 $hostProc = $null
+$keepModernServices = $false
 
 try {
   & $computerCtl start
@@ -22,6 +23,10 @@ try {
     }
     if (-not $gatewayReady) { throw 'Computer host gateway did not start on 127.0.0.1:1340.' }
     & (Join-Path $script:Root 'run-recon.ps1') @args
+    # Grok Bot 0.47 launches its Electron runtime through a detached
+    # bootstrapper. Keep services alive after this script returns so the
+    # detached app can finish dev-login and continue using the shim.
+    $keepModernServices = $true
     return
   }
 
@@ -43,6 +48,11 @@ try {
   & (Join-Path $script:Root 'run-recon.ps1') @args
 } finally {
   if ($hostProc) { & taskkill.exe /PID $hostProc.Id /T /F *> $null }
-  if (-not $shimWasRunning) { & $shimCtl stop *> $null }
-  if (-not $computerWasRunning) { & $computerCtl stop *> $null }
+  if (-not $keepModernServices) {
+    if (-not $shimWasRunning) { & $shimCtl stop *> $null }
+    if (-not $computerWasRunning) { & $computerCtl stop *> $null }
+  } else {
+    Write-Host 'modern runtime started; shim and Computer remain running for Grok Bot.'
+    Write-Host 'stop manually with .\shimctl.ps1 stop and .\computerctl.ps1 stop'
+  }
 }
