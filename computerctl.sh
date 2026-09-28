@@ -25,7 +25,8 @@ is_running() {
 
 is_ready() {
   curl -fsS --max-time 2 http://127.0.0.1:6080/vnc.html >/dev/null 2>&1 &&
-    curl -sS --max-time 2 http://127.0.0.1:1337/health >/dev/null 2>&1
+    (command -v nc >/dev/null 2>&1 && nc -z -w 2 127.0.0.1 1337 ||
+      (exec 3<>/dev/tcp/127.0.0.1/1337 && exec 3>&-))
 }
 
 wait_ready() {

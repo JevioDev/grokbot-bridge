@@ -33,7 +33,9 @@ function Invoke-Docker {
 }
 
 function Test-ComputerReady {
-  return (Test-HttpHealth 'http://127.0.0.1:6080/vnc.html') -and (Test-HttpHealth 'http://127.0.0.1:1337/health')
+  # The exec daemon on 1337 intentionally has no HTTP health route; a TCP
+  # connection confirms that the daemon is listening and ready for requests.
+  return (Test-HttpHealth 'http://127.0.0.1:6080/vnc.html') -and (Test-TcpPort '127.0.0.1' 1337)
 }
 
 function Test-ComputerContainer {

@@ -99,7 +99,7 @@ Grok Bot UI ──► host gateway (:8550) ──► shim (:8443) ──► мо
      │                 │
      │                 └── agent loop, shell, files и tools
      │
-     └── Computer container (:6080 noVNC, :1337 health)
+     └── Computer container (:6080 noVNC, :1337 exec daemon)
 ```
 
 - `run-recon.sh` и `run-recon.ps1` запускают desktop с изолированным профилем;
