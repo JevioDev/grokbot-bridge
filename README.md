@@ -74,7 +74,8 @@ Bridge поддерживает два режима:
 
 - `legacy` — извлекает `dist/host/host-main.cjs` из `resources/app.asar`;
 - `modern` — использует встроенный `node-agent-coordinator` новой сборки и
-  подключает его к Computer gateway на `127.0.0.1:1340`.
+  подключает его к Computer host gateway на `127.0.0.1:1340`. На Windows bridge
+  автоматически запускает `host-main.cjs` внутри Computer-контейнера.
 
 Windows-сборка Grok Bot `0.47.0` использует `modern` режим. Для него Docker
 контейнер должен публиковать порт `1340`.
@@ -206,10 +207,12 @@ npm test
 .\run-recon.ps1
 ```
 
-`run-all.ps1` ждёт доступности host gateway на TCP-порту `8550` перед запуском
-Grok Bot. В modern runtime (Grok Bot 0.47 и новее) launcher приложения
-отсоединяется от PowerShell, поэтому shim и Computer остаются запущенными
-после запуска приложения. Остановить их можно вручную:
+В legacy runtime `run-all.ps1` ждёт доступности host gateway на TCP-порту
+`8550` перед запуском Grok Bot. В modern runtime (Grok Bot 0.47 и новее)
+Computer host gateway поднимается внутри контейнера и проверяется через
+`http://127.0.0.1:1340/health`. Launcher приложения отсоединяется от
+PowerShell, поэтому shim и Computer остаются запущенными после запуска
+приложения. Остановить их можно вручную:
 
 ```powershell
 .\shimctl.ps1 stop

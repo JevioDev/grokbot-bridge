@@ -18,7 +18,7 @@ try {
   if ($runtimeMode -eq 'modern') {
     $gatewayReady = $false
     for ($i = 0; $i -lt 40; $i++) {
-      if (Test-TcpPort '127.0.0.1' 1340) { $gatewayReady = $true; break }
+      if (Test-HttpHealth 'http://127.0.0.1:1340/health') { $gatewayReady = $true; break }
       Start-Sleep -Milliseconds 250
     }
     if (-not $gatewayReady) { throw 'Computer host gateway did not start on 127.0.0.1:1340.' }

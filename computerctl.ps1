@@ -38,6 +38,50 @@ function Test-ComputerReady {
   return (Test-HttpHealth 'http://127.0.0.1:6080/vnc.html') -and (Test-TcpPort '127.0.0.1' 1337)
 }
 
+function Test-ComputerHostGateway {
+  return Test-HttpHealth 'http://127.0.0.1:1340/health'
+}
+
+function Start-ComputerHostGateway {
+  if ((Get-BridgeRuntimeMode) -ne 'modern') { return }
+  if (Test-ComputerHostGateway) { return }
+
+  $token = if ($env:SAND_HOST_GATEWAY_TOKEN) { $env:SAND_HOST_GATEWAY_TOKEN } else { 'shim-gateway-token' }
+  $backend = if ($env:GROKBOT_COMPUTER_BACKEND_URL) {
+    $env:GROKBOT_COMPUTER_BACKEND_URL
+  } elseif ($env:SAND_BACKEND_URL) {
+    $env:SAND_BACKEND_URL -replace '://localhost(?=[:/]|$)', '://host.docker.internal'
+  } else {
+    'https://host.docker.internal:8443'
+  }
+
+  $execArgs = @(
+    'exec', '-d',
+    '-e', 'SAND_HOST_IN_BOX=1',
+    '-e', 'SAND_PACKAGED=1',
+    '-e', "SAND_BACKEND_URL=$backend",
+    '-e', 'SAND_HOST_PORT=1340',
+    '-e', 'SAND_GATEWAY_BIND_HOST=0.0.0.0',
+    '-e', "SAND_GATEWAY_TOKEN=$token",
+    '-e', 'SAND_HOST_LOG_FILE=/tmp/sand-host.log',
+    '-e', 'NODE_TLS_REJECT_UNAUTHORIZED=0',
+    $container,
+    '/exec-daemon/node',
+    '/home/box/sand-host/host-main.cjs'
+  )
+  $startCode = Invoke-Docker -DockerArgs $execArgs -Quiet
+  if ($startCode -ne 0) { throw "Could not start the Computer host gateway in '$container'." }
+
+  for ($i = 0; $i -lt 40; $i++) {
+    if (Test-ComputerHostGateway) { return }
+    Start-Sleep -Milliseconds 250
+  }
+
+  Write-Host 'Computer host gateway log:'
+  [void](Invoke-Docker -DockerArgs @('exec', $container, 'sh', '-lc', 'tail -100 /tmp/sand-host.log 2>/dev/null || true'))
+  throw 'Computer host gateway did not become ready on 127.0.0.1:1340.'
+}
+
 function Test-ComputerContainer {
   return (Invoke-Docker -DockerArgs @('container', 'inspect', $container) -Quiet) -eq 0
 }
@@ -70,6 +114,7 @@ function Start-Computer {
 
   for ($i = 0; $i -lt 120; $i++) {
     if (Test-ComputerReady) {
+      Start-ComputerHostGateway
       Write-Host 'computer ready: http://127.0.0.1:6080/vnc.html'
       return
     }
